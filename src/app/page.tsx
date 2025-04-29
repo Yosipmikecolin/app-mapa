@@ -1,103 +1,191 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { GoogleMap, LoadScript, DrawingManager, Circle } from "@react-google-maps/api";
+import { useState, useEffect } from "react";
+
+const containerStyle = {
+  width: "100%",
+  height: "600px",
+};
+
+const center = {
+  lat: 4.711,
+  lng: -74.0721,
+};
+
+export default function Map() {
+  const [drawingModes, setDrawingModes] = useState<
+    google.maps.drawing.OverlayType[]
+  >([]); // Inicializamos como array vacío
+  const [circle, setCircle] = useState<google.maps.Circle | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [isApiLoaded, setIsApiLoaded] = useState(false); // Estado para verificar carga de API
+
+  // Cargar círculo desde localStorage al iniciar
+  useEffect(() => {
+    if (isApiLoaded && map) {
+      const savedZone = localStorage.getItem("savedZone");
+      if (savedZone) {
+        const zoneData = JSON.parse(savedZone);
+        const newCircle = new google.maps.Circle({
+          map: map,
+          center: { lat: zoneData.center.lat, lng: zoneData.center.lng },
+          radius: zoneData.radius,
+          fillColor: "lightgreen",
+          fillOpacity: 0.4,
+          strokeColor: "green",
+          strokeWeight: 2,
+          editable: true,
+          draggable: true,
+        });
+        setCircle(newCircle);
+        setDrawingModes([]); // Mantener control de dibujo oculto
+      }
+    }
+  }, [isApiLoaded, map]);
+
+  function handleMapLoad(mapInstance: google.maps.Map) {
+    setMap(mapInstance);
+    setIsApiLoaded(true); // Indicamos que la API está cargada
+  }
+
+  function handleCircleComplete(newCircle: google.maps.Circle) {
+    setCircle(newCircle);
+    setDrawingModes([]); // Oculta el control de dibujo
+
+    console.log("Círculo creado:", {
+      center: {
+        lat: newCircle.getCenter()?.lat(),
+        lng: newCircle.getCenter()?.lng(),
+      },
+      radius: newCircle.getRadius(),
+    });
+
+    newCircle.setEditable(true);
+    newCircle.setDraggable(true);
+  }
+
+  function deleteCircle() {
+    if (circle) {
+      circle.setMap(null); // Elimina el círculo del mapa
+      setCircle(null);
+      setDrawingModes([]); // Mantiene el control de dibujo oculto y modo sin crear
+      localStorage.removeItem("savedZone"); // Elimina la zona guardada
+    }
+  }
+
+  function startDrawing() {
+    if (window.google && window.google.maps.drawing) {
+      setDrawingModes([window.google.maps.drawing.OverlayType.CIRCLE]); // Activa el modo de dibujo
+    }
+  }
+
+  function saveZone() {
+    if (circle) {
+      const zoneData = {
+        center: {
+          lat: circle.getCenter()?.lat(),
+          lng: circle.getCenter()?.lng(),
+        },
+        radius: circle.getRadius(),
+      };
+      localStorage.setItem("savedZone", JSON.stringify(zoneData));
+      console.log("Zona guardada en localStorage:", zoneData);
+    }
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+    <div>
+      <LoadScript
+        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}
+        libraries={["drawing"]}
+        onLoad={() => setIsApiLoaded(true)} // Marcamos la API como cargada
+      >
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={center}
+          zoom={12}
+          onLoad={handleMapLoad}
+        >
+          {isApiLoaded && (
+            <DrawingManager
+              drawingMode={
+                drawingModes.length > 0
+                  ? google.maps.drawing.OverlayType.CIRCLE
+                  : null
+              }
+              options={{
+                drawingControl: drawingModes.length > 0, // Mostrar control solo si hay modos de dibujo
+                drawingControlOptions: {
+                  drawingModes: drawingModes,
+                  position: google.maps.ControlPosition.TOP_CENTER,
+                },
+                circleOptions: {
+                  fillColor: "lightgreen",
+                  fillOpacity: 0.4,
+                  strokeColor: "green",
+                  strokeWeight: 2,
+                  editable: true,
+                  draggable: true,
+                },
+              }}
+              onCircleComplete={handleCircleComplete}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          )}
+        </GoogleMap>
+      </LoadScript>
+      <div style={{ marginTop: "10px", textAlign: "center" }}>
+        {!circle && (
+          <button
+            onClick={startDrawing}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#4CAF50",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "14px",
+              marginRight: "10px",
+            }}
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            Crear Zona
+          </button>
+        )}
+        {circle && (
+          <>
+            <button
+              onClick={saveZone}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#2196F3",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+                marginRight: "10px",
+              }}
+            >
+              Guardar Zona
+            </button>
+            <button
+              onClick={deleteCircle}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#ff4444",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Eliminar Zona
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
