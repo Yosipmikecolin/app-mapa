@@ -1,6 +1,12 @@
 "use client";
 
-import { GoogleMap, LoadScript, Circle, Marker } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  LoadScript,
+  Circle,
+  Marker,
+  OverlayView,
+} from "@react-google-maps/api";
 import { useState, useEffect } from "react";
 
 const containerStyle = {
@@ -43,7 +49,9 @@ export default function MapViewOnly() {
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("No se pudo obtener la ubicación. Por favor, habilita los permisos de geolocalización.");
+          alert(
+            "No se pudo obtener la ubicación. Por favor, habilita los permisos de geolocalización."
+          );
         },
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
       );
@@ -116,12 +124,14 @@ export default function MapViewOnly() {
             />
           )}
           {userLocation && (
-            <Marker
+            <OverlayView
               position={userLocation}
-              icon={{
-                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-              }}
-            />
+              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+            >
+              <div className="w-4 h-4 bg-green-500 rounded-full absolute top-0 left-0 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 bg-green-500 rounded-full animate-ping"></div>
+              </div>
+            </OverlayView>
           )}
         </GoogleMap>
       </LoadScript>
